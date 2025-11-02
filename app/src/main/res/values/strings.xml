@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ChattingApp</string>
+    <string name="default_web_client_id">50245158295-d21jh49554bcq5fhn4tkm0md7e9gbnl4.apps.googleusercontent.com</string>
 </resources>

@@ -12,7 +12,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ChattingApp">
         <activity
-            android:name=".MainActivity"
+            android:name=".ChatActivity"
+            android:exported="false" />
+        <activity
+            android:name=".HomeActivity"
+            android:exported="false" />
+        <activity
+            android:name=".SignUpActivity"
+            android:exported="false" />
+        <activity
+            android:name=".Log_in_Activity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
