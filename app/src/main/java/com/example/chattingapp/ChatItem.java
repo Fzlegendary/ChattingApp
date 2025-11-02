@@ -34,6 +34,6 @@ public class ChatItem {
     }
 
     public String getUserUid() {
-        return null;
+        return this.userUid;
     }
 }

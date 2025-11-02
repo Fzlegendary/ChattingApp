@@ -65,7 +65,10 @@ public class HomeActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
-
+        chatList.add(new ChatItem("uid_alice", "Alice", "Hey, how are you?", false, "https://i.pravatar.cc/150?img=1"));
+        chatList.add(new ChatItem("uid_bob", "Bob", "See you tomorrow!", false, "https://i.pravatar.cc/150?img=2"));
+        chatList.add(new ChatItem("uid_charlie", "Charlie", "Let's play tonight", false, "https://i.pravatar.cc/150?img=3"));
+        adapter.notifyDataSetChanged();
         loadChats();
     }
 
