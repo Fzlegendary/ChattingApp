@@ -2,9 +2,12 @@ package com.example.chattingapp;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageButton;
 
-import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -12,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -36,9 +40,10 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
+        FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_home);
 
+        // Edge-to-edge padding
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -46,7 +51,6 @@ public class HomeActivity extends AppCompatActivity {
         });
 
         mAuth = FirebaseAuth.getInstance();
-
         btnLogout = findViewById(R.id.btnLogout);
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -65,10 +69,7 @@ public class HomeActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
-        chatList.add(new ChatItem("uid_alice", "Alice", "Hey, how are you?", false, "https://i.pravatar.cc/150?img=1"));
-        chatList.add(new ChatItem("uid_bob", "Bob", "See you tomorrow!", false, "https://i.pravatar.cc/150?img=2"));
-        chatList.add(new ChatItem("uid_charlie", "Charlie", "Let's play tonight", false, "https://i.pravatar.cc/150?img=3"));
-        adapter.notifyDataSetChanged();
+
         loadChats();
     }
 
@@ -78,7 +79,7 @@ public class HomeActivity extends AppCompatActivity {
         chatsRef.orderByChild("participants/" + currentUid).equalTo(true)
                 .addValueEventListener(new ValueEventListener() {
                     @Override
-                    public void onDataChange(DataSnapshot snapshot) {
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
                         chatList.clear();
                         for (DataSnapshot chatSnap : snapshot.getChildren()) {
                             String lastMessage = chatSnap.child("lastMessage").getValue(String.class);
@@ -87,7 +88,7 @@ public class HomeActivity extends AppCompatActivity {
                             if (otherUid != null) {
                                 usersRef.child(otherUid).addListenerForSingleValueEvent(new ValueEventListener() {
                                     @Override
-                                    public void onDataChange(DataSnapshot userSnap) {
+                                    public void onDataChange(@NonNull DataSnapshot userSnap) {
                                         String name = userSnap.child("name").getValue(String.class);
                                         String profile = userSnap.child("profileImageUrl").getValue(String.class);
 
@@ -96,14 +97,14 @@ public class HomeActivity extends AppCompatActivity {
                                     }
 
                                     @Override
-                                    public void onCancelled(DatabaseError error) {}
+                                    public void onCancelled(@NonNull DatabaseError error) {}
                                 });
                             }
                         }
                     }
 
                     @Override
-                    public void onCancelled(DatabaseError error) {}
+                    public void onCancelled(@NonNull DatabaseError error) {}
                 });
     }
 

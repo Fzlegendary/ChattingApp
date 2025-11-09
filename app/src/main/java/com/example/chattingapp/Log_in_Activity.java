@@ -111,6 +111,7 @@ public class Log_in_Activity extends AppCompatActivity {
     // --------------------------
     // GOOGLE SIGN-IN
     // --------------------------
+
     private void signInWithGoogle() {
         Intent signInIntent = mGoogleSignInClient.getSignInIntent();
         startActivityForResult(signInIntent, RC_SIGN_IN);
