@@ -1,20 +1,31 @@
 package com.example.chattingapp;
 
 public class ChatItem {
+    private String chatId;            // NEW: unique chat identifier
     private String userUid;
     private String name;
     private String lastMessage;
     private boolean sentByCurrentUser;
     private String profileImageUrl;
 
-    public ChatItem() {} // default constructor
+    public ChatItem() {}
 
-    public ChatItem(String userUid, String name, String lastMessage, boolean sentByCurrentUser, String profileImageUrl) {
+    public ChatItem(String chatId, String userUid, String name, String lastMessage,
+                    boolean sentByCurrentUser, String profileImageUrl) {
+        this.chatId = chatId;
         this.userUid = userUid;
         this.name = name;
         this.lastMessage = lastMessage;
         this.sentByCurrentUser = sentByCurrentUser;
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public String getChatId() {
+        return chatId;
+    }
+
+    public String getUserUid() {
+        return userUid;
     }
 
     public String getName() {
@@ -33,7 +44,8 @@ public class ChatItem {
         return profileImageUrl;
     }
 
-    public String getUserUid() {
-        return this.userUid;
+    // NEW: update last message without adding a new ChatItem
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
     }
 }

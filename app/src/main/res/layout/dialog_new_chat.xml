@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="24dp"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_round"
+    android:layout_gravity="center"
+    android:gravity="center">
+
+    <TextView
+        android:id="@+id/dialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Start New Chat"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingBottom="12dp"
+        android:textColor="#000000" />
+
+    <EditText
+        android:id="@+id/inputUserUid"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter User UID"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_input"
+        android:textColor="#000000"
+        android:textColorHint="#808080" />
+
+    <Button
+        android:id="@+id/btnCreateChat"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Create Chat"
+        android:backgroundTint="#2196F3"
+        android:textColor="#FFFFFF"
+        android:padding="12dp" />
+
+</LinearLayout>
