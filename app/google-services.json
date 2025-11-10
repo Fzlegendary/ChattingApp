@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "50245158295",
+    "firebase_url": "https://chattingapp-9dcfb-default-rtdb.europe-west1.firebasedatabase.app",
     "project_id": "chattingapp-9dcfb",
     "storage_bucket": "chattingapp-9dcfb.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.example.chattingapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "50245158295-ndnj05dc6v2ukedr2np303ukn780ncth.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.chattingapp",
+            "certificate_hash": "21cdca39b000d6d7470da94516635daec8813548"
+          }
+        },
+        {
+          "client_id": "50245158295-d21jh49554bcq5fhn4tkm0md7e9gbnl4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBNtP0m8kNXYWM36VgNeBqeD77GQ0oN_aI"
@@ -20,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "50245158295-d21jh49554bcq5fhn4tkm0md7e9gbnl4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

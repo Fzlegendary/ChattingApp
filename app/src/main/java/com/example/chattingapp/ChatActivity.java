@@ -2,7 +2,6 @@ package com.example.chattingapp;
 
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
@@ -11,7 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -30,10 +29,12 @@ public class ChatActivity extends AppCompatActivity {
     private EditText etMessage;
     private ImageButton btnSend;
     private DatabaseReference messagesRef, chatRef;
+    private ValueEventListener messagesListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_chat);
 
         // 1️⃣ Get sender and receiver UIDs from Intent
@@ -46,11 +47,13 @@ public class ChatActivity extends AppCompatActivity {
                 : receiverUid + "_" + senderUid;
 
         // 3️⃣ Setup Firebase references
-        messagesRef = FirebaseDatabase.getInstance().getReference("chats")
-                .child(chatId)
-                .child("messages");
+        chatRef = FirebaseDatabase.getInstance()
+                .getReference("chats")
+                .child(chatId);
 
-        chatRef = FirebaseDatabase.getInstance().getReference("chats").child(chatId);
+        messagesRef = chatRef.child("messages");
+
+        // Make sure both participants exist
         chatRef.child("participants").child(senderUid).setValue(true);
         chatRef.child("participants").child(receiverUid).setValue(true);
 
@@ -78,13 +81,15 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void loadMessages() {
-        messagesRef.addValueEventListener(new ValueEventListener() {
+        messagesListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 messagesList.clear();
                 for (DataSnapshot msgSnap : snapshot.getChildren()) {
                     Message message = msgSnap.getValue(Message.class);
-                    messagesList.add(message);
+                    if (message != null) {
+                        messagesList.add(message);
+                    }
                 }
                 messagesAdapter.notifyDataSetChanged();
                 recyclerView.scrollToPosition(messagesList.size() - 1);
@@ -92,7 +97,8 @@ public class ChatActivity extends AppCompatActivity {
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {}
-        });
+        };
+        messagesRef.addValueEventListener(messagesListener);
     }
 
     private void sendMessage(String text) {
@@ -103,6 +109,15 @@ public class ChatActivity extends AppCompatActivity {
         if (messageId != null) {
             messagesRef.child(messageId).setValue(message);
             chatRef.child("lastMessage").setValue(text);
+            chatRef.child("lastTimestamp").setValue(timestamp);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (messagesListener != null) {
+            messagesRef.removeEventListener(messagesListener);
         }
     }
 }
