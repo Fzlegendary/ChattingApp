@@ -1,15 +1,18 @@
 package com.example.chattingapp;
 
+import static android.util.Log.DEBUG;
+
 import android.app.Dialog;
 import android.content.Intent;
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -35,7 +38,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -48,7 +53,6 @@ public class HomeActivity extends AppCompatActivity {
     private ChatAdapter adapter;
     private List<ChatItem> chatList;
 
-    private DatabaseReference chatsRef;
     private DatabaseReference usersRef;
 
     @Override
@@ -61,6 +65,7 @@ public class HomeActivity extends AppCompatActivity {
         rightDrawer = findViewById(R.id.rightDrawer);
         searchBar = findViewById(R.id.searchBar);
         FloatingActionButton fabNewChat = findViewById(R.id.fabNewChat);
+
         mAuth = FirebaseAuth.getInstance();
 
         recyclerView = findViewById(R.id.recyclerView);
@@ -70,7 +75,6 @@ public class HomeActivity extends AppCompatActivity {
         adapter = new ChatAdapter(this, chatList);
         recyclerView.setAdapter(adapter);
 
-        chatsRef = FirebaseDatabase.getInstance().getReference("chats");
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
         // Handle window insets
@@ -80,29 +84,27 @@ public class HomeActivity extends AppCompatActivity {
             return insets;
         });
 
-        // TOOLBAR + HAMBURGER BUTTON ON RIGHT
+        // Toolbar
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
-        toolbar.setNavigationIcon(R.drawable.ic_menu_24); // Your hamburger icon
+        toolbar.setNavigationIcon(R.drawable.ic_menu_24);
         toolbar.setNavigationContentDescription("Menu");
         toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(Gravity.END));
         toolbar.setTitleCentered(true);
-// Force icon to appear on the right side
         toolbar.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
 
         // Drawer menu click
         rightDrawer.setNavigationItemSelectedListener(item -> {
             if (item.getItemId() == R.id.nav_logout) {
                 mAuth.signOut();
-                Intent intent = new Intent(HomeActivity.this, Log_in_Activity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
+                startActivity(new Intent(HomeActivity.this, Log_in_Activity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK));
                 finish();
             }
             drawerLayout.closeDrawer(Gravity.END);
             return true;
         });
 
-        // SEARCH FILTER
+        // Search filter
         searchBar.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -111,265 +113,222 @@ public class HomeActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // FAB - new chat dialog
+        // FAB new chat
         fabNewChat.setOnClickListener(v -> showNewChatDialog());
 
-        // Load chats from SharedPreferences first
-        loadChatsFromPrefs();
+      //  loadChatsFromPrefs();
         loadChats();
     }
 
+    // ---------------------------
+    // Load chats from Firebase
+    // ---------------------------
     private void loadChats() {
         String currentUid = mAuth.getCurrentUser().getUid();
+        if (currentUid == null) return;
 
-        chatsRef.orderByChild("participants/" + currentUid).equalTo(true)
-                .addValueEventListener(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot snapshot) {
-                        chatList.clear();
+        DatabaseReference userChatsRef = usersRef.child(currentUid).child("chats");
+        userChatsRef.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                chatList.clear();
 
-                        for (DataSnapshot chatSnap : snapshot.getChildren()) {
+                for (DataSnapshot chatSnap : snapshot.getChildren()) {
+                    String chatId = chatSnap.getKey();
 
-                            String chatId = chatSnap.getKey();
-                            String lastMessage = chatSnap.child("lastMessage").getValue(String.class);
-                            String otherUid = getOtherUid(chatSnap.child("participants"), currentUid);
+                    DatabaseReference chatRef = FirebaseDatabase.getInstance()
+                            .getReference("users")
+                            .child(currentUid)
+                            .child("chats")
+                            .child(chatId);
 
-                            if (otherUid == null) continue;
+                    chatRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                        @Override
+                        public void onDataChange(DataSnapshot chatData) {
+                            String lastMessage = "";
+                            if (chatData.child("messages").exists()) {
+                                for (DataSnapshot msgSnap : chatData.child("messages").getChildren()) {
+                                    lastMessage = msgSnap.child("text").getValue(String.class);
+                                }
+                            }
 
-                            usersRef.child(otherUid)
-                                    .addListenerForSingleValueEvent(new ValueEventListener() {
-                                        @Override
-                                        public void onDataChange(DataSnapshot userSnap) {
-                                            String profile = userSnap.child("profileImageUrl").getValue(String.class);
+                            String chatName = chatData.child("nameMap").child(currentUid).getValue(String.class);
+                            if (chatName == null) {
+                                chatName = chatId; // fallback to chatId if no name set
+                            }
 
-                                            DatabaseReference nameRef = chatsRef.child(chatId)
-                                                    .child("nameMap")
-                                                    .child(currentUid);
-
-                                            nameRef.addListenerForSingleValueEvent(new ValueEventListener() {
-                                                @Override
-                                                public void onDataChange(DataSnapshot snapshot) {
-                                                    String chatName = snapshot.getValue(String.class);
-                                                    if (chatName == null) chatName = "(Unknown User)";
-
-                                                    // Check duplicates by Chat ID
-                                                    ChatItem existing = null;
-                                                    for (ChatItem item : chatList) {
-                                                        if (item.getChatId().equals(chatId)) {
-                                                            existing = item;
-                                                            break;
-                                                        }
-                                                    }
-
-                                                    if (existing == null) {
-                                                        chatList.add(new ChatItem(
-                                                                chatId,
-                                                                otherUid,
-                                                                chatName,
-                                                                lastMessage,
-                                                                false,
-                                                                profile
-                                                        ));
-                                                    } else {
-                                                        existing.setLastMessage(lastMessage);
-                                                        existing.setName(chatName);
-                                                    }
-
-                                                    adapter.updateFullList(chatList);
-                                                    adapter.notifyDataSetChanged();
-
-                                                    // Save to SharedPreferences whenever we load from Firebase
-                                                    saveChatsToPrefs();
-                                                }
-
-                                                @Override
-                                                public void onCancelled(DatabaseError error) { }
-                                            });
-                                        }
-
-                                        @Override
-                                        public void onCancelled(DatabaseError error) { }
-                                    });
+                            chatList.add(new ChatItem(chatId, chatId, chatName, lastMessage, false, null));
+                            adapter.updateFullList(chatList);
+                            adapter.notifyDataSetChanged();
                         }
-                    }
 
-                    @Override
-                    public void onCancelled(DatabaseError error) {}
-                });
-    }
-
-    private String getOtherUid(DataSnapshot participants, String currentUid) {
-        for (DataSnapshot snap : participants.getChildren()) {
-            if (!snap.getKey().equals(currentUid)) {
-                return snap.getKey();
+                        @Override
+                        public void onCancelled(DatabaseError error) {}
+                    });
+                }
             }
-        }
-        return null;
+
+            @Override
+            public void onCancelled(DatabaseError error) {}
+        });
     }
 
-    // ----------------------------
-    // NEW CHAT DIALOG
-    // ----------------------------
+    // ---------------------------
+    // New chat dialog
+    // ---------------------------
     private void showNewChatDialog() {
         Dialog dialog = new Dialog(this);
         dialog.setContentView(R.layout.dialog_new_chat);
-        EditText inputEmail = dialog.findViewById(R.id.inputUserUid);
+
+        EditText inputEmail = dialog.findViewById(R.id.inputUserUid); // user enters email
         EditText username = dialog.findViewById(R.id.inputUsername);
         Button btnCreate = dialog.findViewById(R.id.btnCreateChat);
 
         btnCreate.setOnClickListener(v -> {
             String name = username.getText().toString().trim();
-            String email = inputEmail.getText().toString().trim();
+            String otherEmail = inputEmail.getText().toString().trim();
 
-            if (email.isEmpty()) {
-                inputEmail.setError("Enter an email");
+            if (otherEmail.isEmpty()) {
+                inputEmail.setError("Enter email");
                 return;
             }
 
-            // Lookup UID by email asynchronously
-            getUidFromEmail(email, new FirebaseUidCallback() {
-                @Override
-                public void onUidFound(String otherUid) {
-                    if (otherUid != null && !otherUid.isBlank()) {
-                        createChatWithOtherUserUid(otherUid, name);
-                        dialog.dismiss();
-                    } else {
-                        Toast.makeText(HomeActivity.this, "Invalid UID", Toast.LENGTH_SHORT).show();
-                    }
-                }
+            // Lookup UID in database
+            String safeEmail = otherEmail.replace(".", "_").replace("@", "_");
+            usersRef.child(safeEmail).child("uid")
+                    .get().addOnCompleteListener(task -> {
+                        if (!task.isSuccessful() || task.getResult() == null) {
+                            Toast.makeText(HomeActivity.this, "Failed to fetch UID", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
 
-                @Override
-                public void onUidNotFound() {
-                    Toast.makeText(HomeActivity.this, "Email not found", Toast.LENGTH_SHORT).show();
-                }
-            });
+                        String otherUid = task.getResult().getValue(String.class);
+                        if (otherUid == null || otherUid.isEmpty()) {
+                            Toast.makeText(HomeActivity.this, "Email not registered", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        createChatWithOtherUid(otherUid, name);
+                        dialog.dismiss();
+                    });
         });
 
         dialog.show();
     }
 
-    private void getUidFromEmail(String email, FirebaseUidCallback callback) {
-        if (email.isEmpty()) {
-            callback.onUidNotFound();
+
+    // ---------------------------
+    // Create chat only using sender UID
+    // ---------------------------
+    private void createChatWithOtherUid(String otherUid, String name) {
+        String currentUid = mAuth.getCurrentUser().getUid();
+        if (currentUid == null || otherUid == null || currentUid.equals(otherUid)) {
+            Toast.makeText(this, "cant add yourself nor leave email empty", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        usersRef.orderByChild("email").equalTo(email)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(DataSnapshot snapshot) {
-                        if (snapshot.exists()) {
-                            String uid = null;
-                            for (DataSnapshot userSnap : snapshot.getChildren()) {
-                                uid = userSnap.getKey();
-                                break;
-                            }
-                            if (uid != null) callback.onUidFound(uid);
-                            else callback.onUidNotFound();
-                        } else {
-                            callback.onUidNotFound();
-                        }
-                    }
+        // Generate chatId consistently
+        String chatId = currentUid + "_" + otherUid;
+        Log.d("DEBUG", "createChatWithOtherUid: chatID created.");
 
-                    @Override
-                    public void onCancelled(DatabaseError error) {
-                        callback.onUidNotFound();
-                    }
-                });
-    }
+        DatabaseReference chatRefCurrent = usersRef.child(currentUid).child("chats").child(chatId);
+        DatabaseReference chatRefOther = usersRef.child(otherUid).child("chats").child(chatId);
+        Log.d("DEBUG", "createChatWithOtherUid: got prefs.");
 
-    private void createChatWithOtherUserUid(String otherUid, String name){
-        String currentUid = mAuth.getCurrentUser().getUid();
-        String chatId = getChatUidBy(currentUid, otherUid);
 
-        ChatItem e = new ChatItem(chatId, otherUid, name, "", false, null);
-        chatList.add(e);
-        adapter.notifyDataSetChanged();
+        // Use a single update map for both users
+        long timestamp = System.currentTimeMillis();
+        Map<String, Object> chatData = new HashMap<>();
+        chatData.put("participants/" + currentUid, true);
+        chatData.put("participants/" + otherUid, true);
+        chatData.put("lastMessage", "");
+        chatData.put("timestamp", timestamp);
 
-        DatabaseReference chatRef = chatsRef.child(chatId);
-        chatRef.get().addOnCompleteListener(task -> {
+        Log.d("DEBUG", "createChatWithOtherUid: created hashmap");
+
+        // Check if chat exists and create atomically
+        chatRefCurrent.get().addOnCompleteListener(task -> {
             if (!task.isSuccessful()) return;
 
             if (!task.getResult().exists()) {
-                chatRef.child("participants").child(currentUid).setValue(true);
-                chatRef.child("participants").child(otherUid).setValue(true);
-                chatRef.child("lastMessage").setValue("");
-                chatRef.child("timestamp").setValue(System.currentTimeMillis());
+                Log.d("DEBUG", "createChatWithOtherUid: task successful ");
+
+                // Update both users
+                chatRefCurrent.updateChildren(chatData);
+                chatRefOther.updateChildren(chatData);
+
+                Log.d("DEBUG", "createChatWithOtherUid: updates users.");
+                // Add to local list
+                ChatItem newChat = new ChatItem(chatId, otherUid, name, "", false, null);
+                chatList.add(newChat);
+                adapter.updateFullList(chatList);
+                adapter.notifyDataSetChanged();
+                Log.d("DEBUG", "createChatWithOtherUid: added chat to fullList");
+
+            } else {
+                Toast.makeText(HomeActivity.this, "Chat already exists", Toast.LENGTH_SHORT).show();
             }
-            loadChats();
         });
     }
 
-    private void saveChatsToPrefs() {
-        if (chatList == null || chatList.isEmpty()) return;
+    // ---------------------------
+    // SharedPreferences
+    // ---------------------------
+//    private void saveChatsToPrefs() {
+//        if (chatList == null || chatList.isEmpty()) return;
+//
+//        JSONArray jsonArray = new JSONArray();
+//        try {
+//            for (ChatItem chat : chatList) {
+//                JSONObject obj = new JSONObject();
+//                obj.put("chatId", chat.getChatId());
+//                obj.put("otherUid", chat.getUserUid());
+//                obj.put("name", chat.getName());
+//                obj.put("lastMessage", chat.getLastMessage());
+//                obj.put("profile", chat.getProfileImageUrl());
+//                jsonArray.put(obj);
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        getSharedPreferences("chat_prefs", MODE_PRIVATE)
+//                .edit()
+//                .putString("chat_list", jsonArray.toString())
+//                .apply();
+//    }
 
-        JSONArray jsonArray = new JSONArray();
-        try {
-            for (ChatItem chat : chatList) {
-                JSONObject obj = new JSONObject();
-                obj.put("chatId", chat.getChatId());
-                obj.put("otherUid", chat.getUserUid());
-                obj.put("name", chat.getName());
-                obj.put("lastMessage", chat.getLastMessage());
-                obj.put("profile", chat.getProfileImageUrl());
-                jsonArray.put(obj);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        getSharedPreferences("chat_prefs", MODE_PRIVATE)
-                .edit()
-                .putString("chat_list", jsonArray.toString())
-                .apply();
-    }
-
-    private void loadChatsFromPrefs() {
-        String json = getSharedPreferences("chat_prefs", MODE_PRIVATE)
-                .getString("chat_list", null);
-
-        if (json == null) return;
-
-        try {
-            JSONArray jsonArray = new JSONArray(json);
-            chatList.clear();
-            for (int i = 0; i < jsonArray.length(); i++) {
-                JSONObject obj = jsonArray.getJSONObject(i);
-                ChatItem chat = new ChatItem(
-                        obj.getString("chatId"),
-                        obj.getString("otherUid"),
-                        obj.getString("name"),
-                        obj.getString("lastMessage"),
-                        false,
-                        obj.optString("profile", null)
-                );
-                chatList.add(chat);
-            }
-            adapter.updateFullList(chatList);
-            adapter.notifyDataSetChanged();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private String getChatUidBy(String uid1, String uid2) {
-        if (uid1 == null || uid2 == null || uid1.equals(uid2)) return null;
-        String first = uid1.compareTo(uid2) < 0 ? uid1 : uid2;
-        String second = uid1.compareTo(uid2) < 0 ? uid2 : uid1;
-        return first + "_" + second;
-    }
+//    private void loadChatsFromPrefs() {
+//        String json = getSharedPreferences("chat_prefs", MODE_PRIVATE)
+//                .getString("chat_list", null);
+//
+//        if (json == null) return;
+//
+//        try {
+//            JSONArray jsonArray = new JSONArray(json);
+//            chatList.clear();
+//            for (int i = 0; i < jsonArray.length(); i++) {
+//                JSONObject obj = jsonArray.getJSONObject(i);
+//                ChatItem chat = new ChatItem(
+//                        obj.getString("chatId"),
+//                        obj.getString("otherUid"),
+//                        obj.getString("name"),
+//                        obj.getString("lastMessage"),
+//                        false,
+//                        obj.optString("profile", null)
+//                );
+//                chatList.add(chat);
+//            }
+//            adapter.updateFullList(chatList);
+//            adapter.notifyDataSetChanged();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     @Override
     public void finish() {
         super.finish();
-        saveChatsToPrefs();
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (drawerLayout.isDrawerOpen(Gravity.END)) {
-            drawerLayout.closeDrawer(Gravity.END);
-        }
-        else super.onBackPressed();
+//        saveChatsToPrefs();
     }
 }

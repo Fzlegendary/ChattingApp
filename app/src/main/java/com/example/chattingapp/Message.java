@@ -13,7 +13,27 @@ public class Message {
         this.timestamp = timestamp;
     }
 
-    public String getSenderUid() { return senderUid; }
-    public String getText() { return text; }
-    public long getTimestamp() { return timestamp; }
+    public String getSenderUid() {
+        return senderUid;
+    }
+
+    public void setSenderUid(String senderUid) {
+        this.senderUid = senderUid;
+    }
+
+    public String getText() {
+        return text;
+    }
+
+    public void setText(String text) {
+        this.text = text;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
 }

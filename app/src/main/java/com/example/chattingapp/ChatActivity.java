@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -22,9 +23,9 @@ import java.util.List;
 
 public class ChatActivity extends AppCompatActivity {
 
-    private String senderUid, receiverUid, chatId;
+    private String senderSafeEmail, chatId;
     private RecyclerView recyclerView;
-    private MessagesAdapter messagesAdapter;
+    private MessageAdapter messagesAdapter;
     private List<Message> messagesList;
     private EditText etMessage;
     private ImageButton btnSend;
@@ -37,45 +38,39 @@ public class ChatActivity extends AppCompatActivity {
         FirebaseApp.initializeApp(this);
         setContentView(R.layout.activity_chat);
 
-        // 1️⃣ Get sender and receiver UIDs from Intent
-        senderUid = getIntent().getStringExtra("senderUid");
-        receiverUid = getIntent().getStringExtra("receiverUid");
+        senderSafeEmail = FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
+        chatId = getIntent().getStringExtra("chatId");
+        if (senderSafeEmail == null || chatId == null) {
+            finish();
+            return;
+        }
 
-        // 2️⃣ Generate unique chatId
-        chatId = senderUid.compareTo(receiverUid) < 0
-                ? senderUid + "_" + receiverUid
-                : receiverUid + "_" + senderUid;
-
-        // 3️⃣ Setup Firebase references
+        // Firebase refs
         chatRef = FirebaseDatabase.getInstance()
-                .getReference("chats")
+                .getReference("users")
+                .child(senderSafeEmail)
+                .child("chats")
                 .child(chatId);
-
         messagesRef = chatRef.child("messages");
 
-        // Make sure both participants exist
-        chatRef.child("participants").child(senderUid).setValue(true);
-        chatRef.child("participants").child(receiverUid).setValue(true);
-
-        // 4️⃣ Setup UI
+        // UI
         recyclerView = findViewById(R.id.recyclerViewMessages);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         messagesList = new ArrayList<>();
-        messagesAdapter = new MessagesAdapter(this, messagesList, senderUid);
+        messagesAdapter = new MessageAdapter(messagesList);
         recyclerView.setAdapter(messagesAdapter);
 
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
 
-        // 5️⃣ Load messages automatically
         loadMessages();
 
-        // 6️⃣ Send message on click
         btnSend.setOnClickListener(v -> {
             String text = etMessage.getText().toString().trim();
             if (!TextUtils.isEmpty(text)) {
                 sendMessage(text);
                 etMessage.setText("");
+                loadMessages();
             }
         });
     }
@@ -104,7 +99,7 @@ public class ChatActivity extends AppCompatActivity {
     private void sendMessage(String text) {
         String messageId = messagesRef.push().getKey();
         long timestamp = System.currentTimeMillis();
-        Message message = new Message(senderUid, text, timestamp);
+        Message message = new Message(FirebaseAuth.getInstance().getCurrentUser().getUid(), text, timestamp);
 
         if (messageId != null) {
             messagesRef.child(messageId).setValue(message);

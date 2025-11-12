@@ -79,10 +79,13 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
         // Click to open chat
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, ChatActivity.class);
-            intent.putExtra("receiverUid", chat.getUserUid());
-            intent.putExtra("senderUid", FirebaseAuth.getInstance().getCurrentUser().getUid());
+            intent.putExtra("chatId", chat.getChatId());
+            intent.putExtra("receiverUid", chat.getUserUid()); // pass UID instead of email
             context.startActivity(intent);
         });
+
+
+
 
         // Long-click dialog with Edit Name first, then Delete
         holder.itemView.setOnLongClickListener(v -> {

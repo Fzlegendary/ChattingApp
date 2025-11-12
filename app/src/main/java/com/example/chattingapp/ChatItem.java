@@ -1,8 +1,8 @@
 package com.example.chattingapp;
 
 public class ChatItem {
-    private String chatId;            // NEW: unique chat identifier
-    private String userUid;
+    private String chatId;       // unique chat identifier
+    private String userUid;      // sender UID for chat reference
     private String name;
     private String lastMessage;
     private boolean sentByCurrentUser;
@@ -31,12 +31,17 @@ public class ChatItem {
     public String getName() {
         return name;
     }
-    public void setName(String name){
+
+    public void setName(String name) {
         this.name = name;
     }
 
     public String getLastMessage() {
         return lastMessage;
+    }
+
+    public void setLastMessage(String lastMessage) {
+        this.lastMessage = lastMessage;
     }
 
     public boolean isSentByCurrentUser() {
@@ -45,10 +50,5 @@ public class ChatItem {
 
     public String getProfileImageUrl() {
         return profileImageUrl;
-    }
-
-    // NEW: update last message without adding a new ChatItem
-    public void setLastMessage(String lastMessage) {
-        this.lastMessage = lastMessage;
     }
 }
