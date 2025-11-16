@@ -1,24 +1,24 @@
 package com.example.chattingapp;
 
 public class Message {
-    private String senderUid;
+    private String sender;
     private String text;
     private long timestamp;
 
     public Message() {}
 
-    public Message(String senderUid, String text, long timestamp) {
-        this.senderUid = senderUid;
+    public Message(String sender, String text, long timestamp) {
+        this.sender = sender;
         this.text = text;
         this.timestamp = timestamp;
     }
 
-    public String getSenderUid() {
-        return senderUid;
+    public String getSender() {
+        return sender;
     }
 
-    public void setSenderUid(String senderUid) {
-        this.senderUid = senderUid;
+    public void setSender(String sender) {
+        this.sender = sender;
     }
 
     public String getText() {

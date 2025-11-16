@@ -8,8 +8,6 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.firebase.auth.FirebaseAuth;
-
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -18,33 +16,40 @@ import java.util.Locale;
 public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHolder> {
 
     private final List<Message> messages;
-    private final String currentUserUid;
+    private final String currentUserUid; // should be senderSafeEmail
 
-    public MessageAdapter(List<Message> messages) {
+    public MessageAdapter(List<Message> messages, String currentUserUid) {
         this.messages = messages;
-        this.currentUserUid = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        this.currentUserUid = currentUserUid != null ? currentUserUid : "";
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_chat, parent, false); // separate layout for messages
+                .inflate(R.layout.item_chat, parent, false);
         return new ViewHolder(view);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         Message message = messages.get(position);
+        if (message == null) return;
 
-        boolean isSent = message.getSenderUid().equals(currentUserUid);
-        holder.tvMessage.setText(message.getText());
+        String sender = message.getSender() != null ? message.getSender() : "";
+        String text = message.getText() != null ? message.getText() : "";
 
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
-        String time = sdf.format(new Date(message.getTimestamp()));
-        holder.tvTime.setText(time);
+        holder.tvMessage.setText(text);
 
-        if (isSent) {
+        String timeStr = "";
+        if (message.getTimestamp() > 0) {
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm", Locale.getDefault());
+            timeStr = sdf.format(new Date(message.getTimestamp()));
+        }
+        holder.tvTime.setText(timeStr);
+
+        // Left/right styling
+        if (sender.equals(currentUserUid)) {
             holder.tvMessage.setBackgroundResource(R.drawable.bg_message_right);
             holder.tvMessage.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_END);
         } else {

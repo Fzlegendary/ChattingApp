@@ -17,6 +17,7 @@ import com.google.firebase.auth.*;
 import com.google.firebase.database.*;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class Log_in_Activity extends AppCompatActivity {
 
@@ -157,13 +158,25 @@ public class Log_in_Activity extends AppCompatActivity {
 
         String email = user.getEmail();
         String safeEmail = email.replace(".", "_").replace("@", "_");
+        String uid = user.getUid();
 
-        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(safeEmail);
+        DatabaseReference userRef = usersRef.child(safeEmail);
 
         userRef.get().addOnSuccessListener(snapshot -> {
             if (!snapshot.exists()) {
-                userRef.child("email").setValue(email);
-                userRef.child("uid").setValue(user.getUid());
+                // Save minimal info needed for chats
+                Map<String, Object> userData = new HashMap<>();
+                userData.put("email", email);
+                userData.put("uid", uid);
+
+                userRef.updateChildren(userData)
+                        .addOnSuccessListener(aVoid -> {
+                            // Optional: log or toast for debug
+                            // Toast.makeText(this, "User saved in Firebase", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(e -> {
+                            Toast.makeText(this, "Error saving user: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        });
             }
         });
     }
@@ -183,5 +196,12 @@ public class Log_in_Activity extends AppCompatActivity {
             startActivity(new Intent(Log_in_Activity.this, HomeActivity.class));
             finish();
         }
+    }
+
+    @Override
+    public void finish(){
+        super.finish();
+        if (mAuth.getCurrentUser() != null)
+            checkAndSaveUser(mAuth.getCurrentUser());
     }
 }

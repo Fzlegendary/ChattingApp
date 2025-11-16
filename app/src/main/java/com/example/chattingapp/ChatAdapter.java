@@ -80,7 +80,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, ChatActivity.class);
             intent.putExtra("chatId", chat.getChatId());
-            intent.putExtra("receiverUid", chat.getUserUid()); // pass UID instead of email
             context.startActivity(intent);
         });
 
