@@ -56,6 +56,14 @@ public class HomeActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_home);
 
+        DatabaseReference uidRef = FirebaseDatabase.getInstance().getReference()
+                .child("users")
+                .child(FirebaseAuth.getInstance().getCurrentUser().getEmail().replace(".", "_").replace("@", "_"))
+                .child("uid");
+        if(uidRef.getKey() != FirebaseAuth.getInstance().getCurrentUser().getUid())
+            uidRef.setValue(FirebaseAuth.getInstance().getCurrentUser().getUid());
+        else
+            uidRef.onDisconnect();
         drawerLayout = findViewById(R.id.drawerLayout);
         rightDrawer = findViewById(R.id.rightDrawer);
         searchBar = findViewById(R.id.searchBar);

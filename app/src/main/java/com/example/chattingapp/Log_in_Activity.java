@@ -168,7 +168,6 @@ public class Log_in_Activity extends AppCompatActivity {
                 Map<String, Object> userData = new HashMap<>();
                 userData.put("email", email);
                 userData.put("uid", uid);
-
                 userRef.updateChildren(userData)
                         .addOnSuccessListener(aVoid -> {
                             // Optional: log or toast for debug

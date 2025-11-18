@@ -1,5 +1,6 @@
 package com.example.chattingapp;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,7 +28,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.item_chat, parent, false);
+                .inflate(R.layout.item_message_left, parent, false);
         return new ViewHolder(view);
     }
 
@@ -38,7 +39,8 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.ViewHold
 
         String sender = message.getSender() != null ? message.getSender() : "";
         String text = message.getText() != null ? message.getText() : "";
-
+        Log.d("hezi", position + "");
+        Log.d("hezi", text);
         holder.tvMessage.setText(text);
 
         String timeStr = "";

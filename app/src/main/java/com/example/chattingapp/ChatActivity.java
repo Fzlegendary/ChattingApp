@@ -2,6 +2,7 @@ package com.example.chattingapp;
 
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.Toast;
@@ -88,8 +89,11 @@ public class ChatActivity extends AppCompatActivity {
                     Message message = msgSnap.getValue(Message.class);
                     if (message != null) {
                         messagesList.add(message);
+
                     }
                 }
+                Log.d("hezi", "onDataChange: " + messagesList.size());
+                Log.d("hezi", messagesList.get(0).getText());
                 messagesAdapter.notifyDataSetChanged();
                 if (!messagesList.isEmpty()) {
                     recyclerView.scrollToPosition(messagesList.size() - 1);
