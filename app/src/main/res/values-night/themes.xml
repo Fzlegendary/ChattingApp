@@ -1,5 +1,9 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
+    <color name="button_primary">#42A5F5</color>
+    <color name="button_primary_dark">#2196F3</color>
+    <color name="dialog_border">#424242</color>
+    <color name="input_background">#2C2C2C</color>
     <style name="Base.Theme.ChattingApp" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->

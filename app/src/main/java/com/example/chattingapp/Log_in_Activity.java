@@ -14,7 +14,8 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.auth.*;
-import com.google.firebase.database.*;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,34 +30,39 @@ public class Log_in_Activity extends AppCompatActivity {
     private DatabaseReference usersRef;
 
     private static final int RC_SIGN_IN = 1000;
+    private static final int REQUEST_SIGNUP = 5;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.login);
 
-        // Firebase setup
         mAuth = FirebaseAuth.getInstance();
         usersRef = FirebaseDatabase.getInstance().getReference("users");
 
-        // Initialize UI
         etEmail = findViewById(R.id.etEmail);
         etPassword = findViewById(R.id.etPassword);
         btnSignIn = findViewById(R.id.btnSignIn);
         tvSignUp = findViewById(R.id.tvSignUp);
         tvForgotPassword = findViewById(R.id.tvForgotPassword);
 
-        // Google Sign-In options
+        // Google Sign-In setup
         GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail()
                 .build();
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
 
-        // Listeners
+        // Button listeners
         btnSignIn.setOnClickListener(v -> loginUser());
-        tvSignUp.setOnClickListener(v -> startActivity(new Intent(Log_in_Activity.this, SignUpActivity.class)));
+
+        tvSignUp.setOnClickListener(v -> {
+            Intent intent = new Intent(Log_in_Activity.this, SignUpActivity.class);
+            startActivityForResult(intent, REQUEST_SIGNUP);
+        });
+
         tvForgotPassword.setOnClickListener(v -> resetPassword());
+
         findViewById(R.id.btnGoogleSignIn).setOnClickListener(v -> signInWithGoogle());
     }
 
@@ -80,11 +86,14 @@ public class Log_in_Activity extends AppCompatActivity {
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         checkAndSaveUser(mAuth.getCurrentUser());
+
                         Toast.makeText(Log_in_Activity.this, "Login successful", Toast.LENGTH_SHORT).show();
                         startActivity(new Intent(Log_in_Activity.this, HomeActivity.class));
                         finish();
                     } else {
-                        Toast.makeText(Log_in_Activity.this, "Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Log_in_Activity.this,
+                                "Error: " + task.getException().getMessage(),
+                                Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -94,18 +103,18 @@ public class Log_in_Activity extends AppCompatActivity {
     // --------------------------
     private void resetPassword() {
         String email = etEmail.getText().toString().trim();
-
         if (TextUtils.isEmpty(email)) {
             etEmail.setError("Enter your email first");
             return;
         }
-
         mAuth.sendPasswordResetEmail(email)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         Toast.makeText(Log_in_Activity.this, "Password reset email sent", Toast.LENGTH_SHORT).show();
                     } else {
-                        Toast.makeText(Log_in_Activity.this, "Error: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(Log_in_Activity.this,
+                                "Error: " + task.getException().getMessage(),
+                                Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -123,6 +132,13 @@ public class Log_in_Activity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        // Handle SignUpActivity returning "Sign In"
+        if (requestCode == REQUEST_SIGNUP && resultCode == RESULT_OK) {
+            finish(); // Close original login activity to avoid multiple pages
+            return;
+        }
+
+        // Google sign-in
         if (requestCode == RC_SIGN_IN) {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
             try {
@@ -154,32 +170,27 @@ public class Log_in_Activity extends AppCompatActivity {
     // SAVE USER TO DATABASE IF MISSING
     // --------------------------
     private void checkAndSaveUser(FirebaseUser user) {
-        if (user == null || user.getEmail() == null) return;
+        if (user == null) return;
 
-        String email = user.getEmail();
-        String safeEmail = email.replace(".", "_").replace("@", "_");
-        String uid = user.getUid();
+        user.reload().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) return;
 
-        DatabaseReference userRef = usersRef.child(safeEmail);
+            String email = user.getEmail();
+            if (email == null || email.isEmpty()) return;
 
-        userRef.get().addOnSuccessListener(snapshot -> {
-            if (!snapshot.exists()) {
-                // Save minimal info needed for chats
-                Map<String, Object> userData = new HashMap<>();
-                userData.put("email", email);
-                userData.put("uid", uid);
-                userRef.updateChildren(userData)
-                        .addOnSuccessListener(aVoid -> {
-                            // Optional: log or toast for debug
-                            // Toast.makeText(this, "User saved in Firebase", Toast.LENGTH_SHORT).show();
-                        })
-                        .addOnFailureListener(e -> {
-                            Toast.makeText(this, "Error saving user: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                        });
-            }
+            String safeEmail = email.replace(".", "_").replace("@", "_");
+            String uid = user.getUid();
+
+            usersRef.child(safeEmail).get().addOnSuccessListener(snapshot -> {
+                if (!snapshot.exists()) {
+                    Map<String, Object> userData = new HashMap<>();
+                    userData.put("email", email);
+                    userData.put("uid", uid);
+                    usersRef.child(safeEmail).updateChildren(userData);
+                }
+            });
         });
     }
-
 
     // --------------------------
     // AUTO LOGIN + AUTO SAVE IF USER NOT EXISTS
@@ -189,18 +200,9 @@ public class Log_in_Activity extends AppCompatActivity {
         super.onStart();
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser != null) {
-            // ensure user exists in Firebase
             checkAndSaveUser(currentUser);
-
             startActivity(new Intent(Log_in_Activity.this, HomeActivity.class));
             finish();
         }
-    }
-
-    @Override
-    public void finish(){
-        super.finish();
-        if (mAuth.getCurrentUser() != null)
-            checkAndSaveUser(mAuth.getCurrentUser());
     }
 }

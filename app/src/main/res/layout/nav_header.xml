@@ -27,7 +27,6 @@
             android:scaleType="centerCrop"
             android:src="@drawable/ic_person_foreground"
             android:contentDescription="Profile Picture" />
-
     </com.google.android.material.card.MaterialCardView>
 
     <!-- User Name -->
@@ -41,7 +40,7 @@
         android:textColor="?attr/colorOnPrimary"
         android:paddingBottom="4dp" />
 
-    <!-- User Email/Info -->
+    <!-- User Email -->
     <TextView
         android:id="@+id/navHeaderEmail"
         android:layout_width="match_parent"

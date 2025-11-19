@@ -70,7 +70,7 @@ public class ChatActivity extends AppCompatActivity {
         btnSend = findViewById(R.id.btnSend);
 
         loadMessages();
-
+        Log.d("ChatActivity progress", "loaded messages");
         btnSend.setOnClickListener(v -> {
             String text = etMessage.getText().toString().trim();
             if (!TextUtils.isEmpty(text)) {
@@ -78,6 +78,7 @@ public class ChatActivity extends AppCompatActivity {
                 etMessage.setText(" ");
             }
         });
+        Log.d("ChatActivity progress", "set onClick");
     }
 
     private void loadMessages() {
@@ -89,11 +90,10 @@ public class ChatActivity extends AppCompatActivity {
                     Message message = msgSnap.getValue(Message.class);
                     if (message != null) {
                         messagesList.add(message);
-
+                        Log.d("hezi", "onDataChange: message: " + message.getText());
                     }
                 }
                 Log.d("hezi", "onDataChange: " + messagesList.size());
-                Log.d("hezi", messagesList.get(0).getText());
                 messagesAdapter.notifyDataSetChanged();
                 if (!messagesList.isEmpty()) {
                     recyclerView.scrollToPosition(messagesList.size() - 1);
