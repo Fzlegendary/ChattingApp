@@ -57,71 +57,57 @@ public class HomeActivity extends AppCompatActivity {
     private DatabaseReference chatsRef;
     private ChildEventListener chatsListener;
 
+    private String safeEmail;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_home);
 
-        // 1) Initialize FirebaseAuth FIRST (fixes crash)
         mAuth = FirebaseAuth.getInstance();
-
-        // 2) Firebase uid fix
-        String safeEmail = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
+        safeEmail = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
 
         DatabaseReference uidRef = FirebaseDatabase.getInstance().getReference()
                 .child("users")
                 .child(safeEmail)
                 .child("uid");
-
         uidRef.setValue(mAuth.getCurrentUser().getUid());
 
-        // Drawer + NavigationView
         drawerLayout = findViewById(R.id.drawerLayout);
         rightDrawer = findViewById(R.id.rightDrawer);
 
-        // Correct way to get header views
         View headerView = rightDrawer.getHeaderView(0);
-
         tvEmail = headerView.findViewById(R.id.navHeaderEmail);
         tvName = headerView.findViewById(R.id.navHeaderName);
         ivImage = headerView.findViewById(R.id.navHeaderImage);
 
-        // Set user info
         tvEmail.setText(mAuth.getCurrentUser().getEmail());
-
         String displayName = mAuth.getCurrentUser().getDisplayName();
-        Log.d("lol", "Display name: " + displayName);
         tvName.setText(displayName != null ? displayName : "Unknown");
-        Log.d("lol", "displayed name: " + tvName.getText().toString().trim());
 
         Uri photoUri = mAuth.getCurrentUser().getPhotoUrl();
-        if (photoUri != null)
-            ivImage.setImageURI(photoUri);
+        if (photoUri != null) ivImage.setImageURI(photoUri);
 
-        // Search bar
         searchBar = findViewById(R.id.searchBar);
         FloatingActionButton fabNewChat = findViewById(R.id.fabNewChat);
 
-        // RecyclerView setup
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         chatList = new ArrayList<>();
-        adapter = new ChatAdapter(this, chatList);
+        adapter = new ChatAdapter(this, chatList, safeEmail);
         recyclerView.setAdapter(adapter);
 
         usersRef = FirebaseDatabase.getInstance().getReference("users");
         chatsRef = FirebaseDatabase.getInstance().getReference("chats");
 
-        // Window insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Toolbar setup
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setNavigationIcon(R.drawable.ic_menu_24);
         toolbar.setNavigationOnClickListener(v -> drawerLayout.openDrawer(Gravity.END));
@@ -155,11 +141,7 @@ public class HomeActivity extends AppCompatActivity {
         listenForGlobalChats();
     }
 
-    // -----------------------------
-    // Load chats
-    // -----------------------------
     private void loadChats() {
-        String safeEmail = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
         DatabaseReference userChatsRef = usersRef.child(safeEmail).child("chats");
 
         userChatsRef.get().addOnCompleteListener(task -> {
@@ -190,12 +172,7 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
-    // -----------------------------
-    // Listen to global chats
-    // -----------------------------
     private void listenForGlobalChats() {
-        String safeEmail = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
-
         chatsListener = new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot snapshot, String previousChildName) {
@@ -205,17 +182,14 @@ public class HomeActivity extends AppCompatActivity {
                 if (chatId == null) return;
 
                 String chatName = snapshot.child("chatName").getValue(String.class);
-                if (chatName == null) chatName = "(unknown user)";
+                if (chatName == null) chatName = "(unknown)";
 
                 String lastText = "";
                 String lastSender = "";
-
                 if (snapshot.child("lastMessage").exists()) {
                     lastText = snapshot.child("lastMessage").child("text").getValue(String.class);
                     lastSender = snapshot.child("lastMessage").child("sender").getValue(String.class);
                 }
-
-                DatabaseReference userChatRef = usersRef.child(safeEmail).child("chats").child(chatId);
 
                 boolean existsLocally = false;
                 for (ChatItem item : chatList) {
@@ -239,7 +213,6 @@ public class HomeActivity extends AppCompatActivity {
 
                 String lastText = "";
                 String lastSender = "";
-
                 if (snapshot.child("lastMessage").exists()) {
                     lastText = snapshot.child("lastMessage").child("text").getValue(String.class);
                     lastSender = snapshot.child("lastMessage").child("sender").getValue(String.class);
@@ -264,9 +237,6 @@ public class HomeActivity extends AppCompatActivity {
         chatsRef.addChildEventListener(chatsListener);
     }
 
-    // -----------------------------
-    // Create new chat dialog
-    // -----------------------------
     private void showNewChatDialog() {
         Dialog dialog = new Dialog(this);
         dialog.setContentView(R.layout.dialog_new_chat);
@@ -285,7 +255,6 @@ public class HomeActivity extends AppCompatActivity {
             }
 
             String safeOther = otherEmail.replace(".", "_").replace("@", "_");
-            String safeCurrent = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
 
             usersRef.child(safeOther).child("uid").get()
                     .addOnCompleteListener(task -> {
@@ -296,7 +265,7 @@ public class HomeActivity extends AppCompatActivity {
                             return;
                         }
 
-                        createChatWithOtherEmail(safeCurrent, safeOther, name);
+                        createChatWithOtherEmail(safeEmail, safeOther, name);
                         dialog.dismiss();
                     });
         });
@@ -304,9 +273,6 @@ public class HomeActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    // -----------------------------
-    // Create chat
-    // -----------------------------
     private void createChatWithOtherEmail(String current, String other, String name) {
         if (current.equals(other)) {
             Toast.makeText(this, "Cannot chat with yourself", Toast.LENGTH_SHORT).show();
@@ -315,10 +281,6 @@ public class HomeActivity extends AppCompatActivity {
 
         String chatId = current + "|" + other;
 
-        if (chatId == other + "|" + current) {
-            Toast.makeText(this, "chat already exists", Toast.LENGTH_SHORT).show();
-            return;
-        }
         DatabaseReference chatRefCurrent = usersRef.child(current).child("chats").child(chatId);
         DatabaseReference chatRefOther = usersRef.child(other).child("chats").child(chatId);
 
@@ -345,13 +307,8 @@ public class HomeActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
-    // -----------------------------
-    // Clear chats
-    // -----------------------------
     private void clearAllUserChatsFromFirebase() {
-        String safe = mAuth.getCurrentUser().getEmail().replace(".", "_").replace("@", "_");
-        DatabaseReference userChats = usersRef.child(safe).child("chats");
-
+        DatabaseReference userChats = usersRef.child(safeEmail).child("chats");
         userChats.removeValue().addOnCompleteListener(task -> {
             chatList.clear();
             adapter.updateFullList(chatList);
@@ -372,7 +329,6 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        if (chatsListener != null)
-            chatsRef.removeEventListener(chatsListener);
+        if (chatsListener != null) chatsRef.removeEventListener(chatsListener);
     }
 }

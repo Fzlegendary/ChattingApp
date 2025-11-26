@@ -2,9 +2,9 @@ package com.example.chattingapp;
 
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.util.Log;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -32,8 +32,9 @@ public class ChatActivity extends AppCompatActivity {
     private List<Message> messagesList;
     private EditText etMessage;
     private ImageButton btnSend;
+    private TextView tvChatName;
 
-    private DatabaseReference messagesRef, globalChatRef, usersRef;
+    private DatabaseReference messagesRef, globalChatRef, usersRef, myChatRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,12 +57,15 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
+        usersRef = FirebaseDatabase.getInstance().getReference("users");
         globalChatRef = FirebaseDatabase.getInstance().getReference("chats").child(chatId);
         messagesRef = globalChatRef.child("messages");
-        usersRef = FirebaseDatabase.getInstance().getReference("users");
+        myChatRef = usersRef.child(senderSafeEmail).child("chats").child(chatId);
 
+        tvChatName = findViewById(R.id.tvChatName);
         recyclerView = findViewById(R.id.recyclerViewMessages);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
         messagesList = new ArrayList<>();
         messagesAdapter = new MessageAdapter(messagesList, senderSafeEmail);
         recyclerView.setAdapter(messagesAdapter);
@@ -69,8 +73,9 @@ public class ChatActivity extends AppCompatActivity {
         etMessage = findViewById(R.id.etMessage);
         btnSend = findViewById(R.id.btnSend);
 
+        loadChatName();   // load per-user nickname
         loadMessages();
-        Log.d("ChatActivity progress", "loaded messages");
+
         btnSend.setOnClickListener(v -> {
             String text = etMessage.getText().toString().trim();
             if (!TextUtils.isEmpty(text)) {
@@ -78,7 +83,21 @@ public class ChatActivity extends AppCompatActivity {
                 etMessage.setText(" ");
             }
         });
-        Log.d("ChatActivity progress", "set onClick");
+    }
+
+    private void loadChatName() {
+        myChatRef.child("chatName").addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String chatName = snapshot.getValue(String.class);
+                if (chatName != null) {
+                    tvChatName.setText(chatName);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) { }
+        });
     }
 
     private void loadMessages() {
@@ -88,12 +107,8 @@ public class ChatActivity extends AppCompatActivity {
                 messagesList.clear();
                 for (DataSnapshot msgSnap : snapshot.getChildren()) {
                     Message message = msgSnap.getValue(Message.class);
-                    if (message != null) {
-                        messagesList.add(message);
-                        Log.d("hezi", "onDataChange: message: " + message.getText());
-                    }
+                    if (message != null) messagesList.add(message);
                 }
-                Log.d("hezi", "onDataChange: " + messagesList.size());
                 messagesAdapter.notifyDataSetChanged();
                 if (!messagesList.isEmpty()) {
                     recyclerView.scrollToPosition(messagesList.size() - 1);
@@ -124,50 +139,24 @@ public class ChatActivity extends AppCompatActivity {
         globalChatRef.child("lastMessage").setValue(lastMsg);
         globalChatRef.child("timestamp").setValue(timestamp);
 
-        DatabaseReference userUpdateRef = FirebaseDatabase.getInstance().getReference("users");
         String firstEmail = chatId.split("\\|")[0];
         String secondEmail = chatId.split("\\|")[1];
-        updateForEmail(firstEmail);
-        updateForEmail(secondEmail);
 
-//         Update lastMessage for each participant
-//        globalChatRef.child("participants").addListenerForSingleValueEvent(new ValueEventListener() {
-//            @Override
-//            public void onDataChange(@NonNull DataSnapshot snapshot) {
-//                for (DataSnapshot participantSnap : snapshot.getChildren()) {
-//                    String participantEmail = participantSnap.getKey();
-//                    if (participantEmail != null) {
-//                        DatabaseReference participantChatRef = usersRef.child(participantEmail)
-//                                .child("chats")
-//                                .child(chatId);
-//
-//                        Map<String, Object> updateMap = new HashMap<>();
-//                        updateMap.put("lastMessage", lastMsg);
-//                        updateMap.put("timestamp", timestamp);
-//
-//                        participantChatRef.updateChildren(updateMap);
-//                    }
-//                }
-//            }
-//
-//            @Override
-//            public void onCancelled(@NonNull DatabaseError error) {
-//                Toast.makeText(ChatActivity.this, "Failed to update participants", Toast.LENGTH_SHORT).show();
-//            }
-//        });
+        updateParticipantLastMessage(firstEmail, text);
+        updateParticipantLastMessage(secondEmail, text);
     }
-    private void updateForEmail(String safeEmail){
+
+    private void updateParticipantLastMessage(String safeEmail, String text){
         DatabaseReference participantChatRef = usersRef.child(safeEmail)
                 .child("chats")
                 .child(chatId);
 
         Map<String, Object> updateMap = new HashMap<>();
-        updateMap.put("lastMessage/text", etMessage.getText().toString().trim());
+        updateMap.put("lastMessage/text", text);
         updateMap.put("lastMessage/sender", senderSafeEmail);
         updateMap.put("lastMessage/timestamp", System.currentTimeMillis());
         updateMap.put("timestamp", System.currentTimeMillis());
 
         participantChatRef.updateChildren(updateMap);
     }
-
 }

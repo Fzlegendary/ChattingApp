@@ -4,6 +4,14 @@
     <color name="button_primary_dark">#2196F3</color>
     <color name="dialog_border">#424242</color>
     <color name="input_background">#2C2C2C</color>
+
+    <!-- Message Bubbles -->
+    <color name="message_sent_background">#2196F3</color>
+    <color name="message_received_background">#2C2C2C</color>
+    <color name="message_sent_text">#FFFFFF</color>
+    <color name="message_received_text">#FFFFFF</color>
+    <color name="send_button_background">#C5B05AED</color>
+
     <style name="Base.Theme.ChattingApp" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->

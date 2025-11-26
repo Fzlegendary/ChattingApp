@@ -17,7 +17,6 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -29,11 +28,13 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
     private List<ChatItem> chatList;
     private List<ChatItem> fullList;
     private Context context;
+    private String safeEmail;
 
-    public ChatAdapter(Context context, List<ChatItem> chatList) {
+    public ChatAdapter(Context context, List<ChatItem> chatList, String safeEmail) {
         this.context = context;
         this.chatList = chatList;
         this.fullList = new ArrayList<>(chatList);
+        this.safeEmail = safeEmail;
     }
 
     public void updateFullList(List<ChatItem> newList) {
@@ -42,7 +43,6 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
 
     public void filter(String text) {
         chatList.clear();
-
         if (TextUtils.isEmpty(text)) {
             chatList.addAll(fullList);
         } else {
@@ -76,17 +76,12 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
                 .placeholder(R.drawable.ic_person_foreground)
                 .into(holder.imgProfile);
 
-        // Click to open chat
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, ChatActivity.class);
             intent.putExtra("chatId", chat.getChatId());
             context.startActivity(intent);
         });
 
-
-
-
-        // Long-click dialog with Edit Name first, then Delete
         holder.itemView.setOnLongClickListener(v -> {
             int adapterPos = holder.getAdapterPosition();
             if (adapterPos == RecyclerView.NO_POSITION) return true;
@@ -96,19 +91,16 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
                     .setItems(new CharSequence[]{"Edit Name", "Delete Chat"}, (dialog, which) -> {
                         ChatItem selectedChat = chatList.get(adapterPos);
 
-                        if (which == 0) {
-                            // Edit name
-                            showEditNameDialog(selectedChat, adapterPos);
-                        } else if (which == 1) {
-                            // Delete chat locally
+                        if (which == 0) showEditNameDialog(selectedChat, adapterPos);
+                        else if (which == 1) {
                             chatList.remove(adapterPos);
                             fullList.removeIf(item -> item.getChatId().equals(selectedChat.getChatId()));
                             notifyDataSetChanged();
                             Toast.makeText(context, "Chat removed", Toast.LENGTH_SHORT).show();
-
-                            // Remove from Firebase
                             DatabaseReference chatRef = FirebaseDatabase.getInstance()
-                                    .getReference("chats")
+                                    .getReference("users")
+                                    .child(safeEmail)
+                                    .child("chats")
                                     .child(selectedChat.getChatId());
                             chatRef.removeValue();
                         }
@@ -131,29 +123,28 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
             if (!newName.isEmpty()) {
                 chat.setName(newName);
                 notifyItemChanged(position);
-                // Update in fullList
+
                 for (ChatItem item : fullList) {
                     if (item.getChatId().equals(chat.getChatId())) {
                         item.setName(newName);
                         break;
                     }
                 }
-                // Update in Firebase
+
                 DatabaseReference chatRef = FirebaseDatabase.getInstance()
-                        .getReference("chats")
+                        .getReference("users")
+                        .child(safeEmail)
+                        .child("chats")
                         .child(chat.getChatId())
-                        .child("nameMap")
-                        .child(FirebaseAuth.getInstance().getCurrentUser().getUid());
+                        .child("chatName");
                 chatRef.setValue(newName)
                         .addOnFailureListener(e ->
                                 Toast.makeText(context, "Failed to update name", Toast.LENGTH_SHORT).show()
                         );
-            }
-            else{
-                input.setError("name cannot be empty");
+            } else {
+                input.setError("Name cannot be empty");
                 Toast.makeText(context, input.getError(), Toast.LENGTH_SHORT).show();
             }
-
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
