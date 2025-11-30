@@ -164,7 +164,7 @@ public class HomeActivity extends AppCompatActivity {
                     lastSender = chatSnap.child("lastMessage").child("sender").getValue(String.class);
                 }
 
-                chatList.add(new ChatItem(chatId, chatId, chatName, lastText, false, "", lastSender));
+                chatList.add(new ChatItem(chatId, chatId, chatName, lastText, false, "", lastSender,0));
             }
 
             adapter.updateFullList(chatList);
@@ -200,7 +200,7 @@ public class HomeActivity extends AppCompatActivity {
                 }
 
                 if (!existsLocally) {
-                    chatList.add(new ChatItem(chatId, chatId, chatName, lastText, false, "", lastSender));
+                    chatList.add(new ChatItem(chatId, chatId, chatName, lastText, false, "", lastSender,0));
                     adapter.updateFullList(chatList);
                     adapter.notifyDataSetChanged();
                 }
@@ -302,7 +302,7 @@ public class HomeActivity extends AppCompatActivity {
 
         chatsRef.child(chatId).updateChildren(chatMeta);
 
-        chatList.add(new ChatItem(chatId, other, name, "", false, "", ""));
+        chatList.add(new ChatItem(chatId, other, name, "", false, "", "",timestamp));
         adapter.updateFullList(chatList);
         adapter.notifyDataSetChanged();
     }

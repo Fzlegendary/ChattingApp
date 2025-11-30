@@ -73,7 +73,7 @@
                 android:src="@drawable/ic_more_vert"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="More options"
-                android:tint="?android:attr/textColorPrimary" />
+                app:tint="?android:attr/textColorPrimary" />
         </LinearLayout>
     </com.google.android.material.appbar.MaterialToolbar>
 
@@ -120,7 +120,7 @@
                 android:src="@drawable/ic_attachment"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Attach file"
-                android:tint="?android:attr/textColorSecondary" />
+                app:tint="?android:attr/textColorSecondary" />
 
             <!-- Message Input Field -->
             <EditText
@@ -130,10 +130,11 @@
                 android:layout_weight="1"
                 android:hint="Type a message..."
                 android:padding="12dp"
+                android:singleLine="true"
                 android:background="@android:color/transparent"
                 android:textColor="?android:attr/textColorPrimary"
                 android:textColorHint="?android:attr/textColorSecondary"
-                android:maxLines="4"
+                android:maxLines="1"
                 android:inputType="textMultiLine|textCapSentences"
                 android:textSize="16sp" />
 

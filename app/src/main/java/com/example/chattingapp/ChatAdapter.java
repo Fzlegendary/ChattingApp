@@ -5,26 +5,30 @@ import android.content.Context;
 import android.content.Intent;
 import android.text.InputType;
 import android.text.TextUtils;
-import android.widget.EditText;
-import android.widget.Toast;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
-
     private List<ChatItem> chatList;
     private List<ChatItem> fullList;
     private Context context;
@@ -69,12 +73,37 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
         ChatItem chat = chatList.get(position);
 
         holder.tvName.setText(chat.getName());
-        holder.tvLastMessage.setText(chat.getLastMessage());
-
         Glide.with(holder.itemView.getContext())
                 .load(chat.getProfileImageUrl())
                 .placeholder(R.drawable.ic_person_foreground)
                 .into(holder.imgProfile);
+
+        // Fetch last message
+        DatabaseReference chatRef = FirebaseDatabase.getInstance().getReference("chats").child(chat.getChatId());
+        chatRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                String lastMessageText = "";
+                long lastTimestamp = 0;
+
+                if (snapshot.child("lastMessage").exists()) {
+                    DataSnapshot lastMsgSnap = snapshot.child("lastMessage");
+                    lastMessageText = lastMsgSnap.child("text").getValue(String.class);
+                    Object tsObj = lastMsgSnap.child("timestamp").getValue();
+                    if (tsObj instanceof Long) lastTimestamp = (Long) tsObj;
+                    else if (tsObj instanceof Double) lastTimestamp = ((Double) tsObj).longValue();
+                }
+
+                holder.tvLastMessage.setText(lastMessageText != null ? lastMessageText : "");
+                holder.tvTime.setText(formatTimestamp(lastTimestamp));
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                holder.tvLastMessage.setText("");
+                holder.tvTime.setText("");
+            }
+        });
 
         holder.itemView.setOnClickListener(v -> {
             Intent intent = new Intent(context, ChatActivity.class);
@@ -97,12 +126,12 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
                             fullList.removeIf(item -> item.getChatId().equals(selectedChat.getChatId()));
                             notifyDataSetChanged();
                             Toast.makeText(context, "Chat removed", Toast.LENGTH_SHORT).show();
-                            DatabaseReference chatRef = FirebaseDatabase.getInstance()
+                            DatabaseReference userChatRef = FirebaseDatabase.getInstance()
                                     .getReference("users")
                                     .child(safeEmail)
                                     .child("chats")
                                     .child(selectedChat.getChatId());
-                            chatRef.removeValue();
+                            userChatRef.removeValue();
                         }
                     }).show();
             return true;
@@ -156,15 +185,36 @@ public class ChatAdapter extends RecyclerView.Adapter<ChatAdapter.ViewHolder> {
         return chatList.size();
     }
 
+    private String formatTimestamp(long timestamp) {
+        if (timestamp == 0) return "";
+
+        Calendar cal = Calendar.getInstance();
+        Calendar msgCal = Calendar.getInstance();
+        msgCal.setTimeInMillis(timestamp);
+
+        int today = cal.get(Calendar.DAY_OF_YEAR);
+        int msgDay = msgCal.get(Calendar.DAY_OF_YEAR);
+        int year = cal.get(Calendar.YEAR);
+        int msgYear = msgCal.get(Calendar.YEAR);
+
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+
+        if (year == msgYear && today == msgDay) return timeFormat.format(msgCal.getTime());
+        else if (year == msgYear && today - msgDay == 1) return "Yesterday";
+        else return dateFormat.format(msgCal.getTime());
+    }
+
     static class ViewHolder extends RecyclerView.ViewHolder {
         ImageView imgProfile;
-        TextView tvName, tvLastMessage;
+        TextView tvName, tvLastMessage, tvTime;
 
         ViewHolder(View itemView) {
             super(itemView);
             imgProfile = itemView.findViewById(R.id.imgProfile);
             tvName = itemView.findViewById(R.id.tvName);
             tvLastMessage = itemView.findViewById(R.id.tvLastMessage);
+            tvTime = itemView.findViewById(R.id.tvTime);
         }
     }
 }

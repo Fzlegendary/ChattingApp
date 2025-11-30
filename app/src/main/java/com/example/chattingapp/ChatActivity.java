@@ -19,7 +19,9 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +69,7 @@ public class ChatActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         messagesList = new ArrayList<>();
-        messagesAdapter = new MessageAdapter(messagesList, senderSafeEmail);
+        messagesAdapter = new MessageAdapter(messagesList, senderSafeEmail, chatId);
         recyclerView.setAdapter(messagesAdapter);
 
         etMessage = findViewById(R.id.etMessage);
@@ -80,8 +82,18 @@ public class ChatActivity extends AppCompatActivity {
             String text = etMessage.getText().toString().trim();
             if (!TextUtils.isEmpty(text)) {
                 sendMessage(text);
-                etMessage.setText(" ");
+                etMessage.setText("");
             }
+        });
+
+        // Enter key sends message
+        etMessage.setOnEditorActionListener((v, actionId, event) -> {
+            String text = etMessage.getText().toString().trim();
+            if (!TextUtils.isEmpty(text)) {
+                sendMessage(text);
+                etMessage.setText("");
+            }
+            return true;
         });
     }
 
@@ -105,10 +117,49 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 messagesList.clear();
+
+                Message previousMessage = null;
                 for (DataSnapshot msgSnap : snapshot.getChildren()) {
                     Message message = msgSnap.getValue(Message.class);
-                    if (message != null) messagesList.add(message);
+                    if (message == null) continue;
+
+                    message.setUid(msgSnap.getKey()); // assign Firebase UID
+
+                    // Check if a date separator is needed
+                    String messageId = messagesRef.push().getKey();
+                    if (previousMessage != null) {
+                        Calendar prevCal = Calendar.getInstance();
+                        prevCal.setTimeInMillis(previousMessage.getTimestamp());
+
+                        Calendar currCal = Calendar.getInstance();
+                        currCal.setTimeInMillis(message.getTimestamp());
+
+                        if (prevCal.get(Calendar.YEAR) != currCal.get(Calendar.YEAR) ||
+                                prevCal.get(Calendar.DAY_OF_YEAR) != currCal.get(Calendar.DAY_OF_YEAR)) {
+                            // Add a virtual date separator before the current message
+                            Message separator = new Message(
+                                    messageId,
+                                    "date_separator",
+                                    formatDateMessage(message.getTimestamp()),
+                                    message.getTimestamp()
+                            );
+                            messagesList.add(separator);
+                        }
+                    } else {
+                        // First message, add date separator
+                        Message separator = new Message(
+                                messageId,
+                                "date_separator",
+                                formatDateMessage(message.getTimestamp()),
+                                message.getTimestamp()
+                        );
+                        messagesList.add(separator);
+                    }
+
+                    messagesList.add(message);
+                    previousMessage = message;
                 }
+
                 messagesAdapter.notifyDataSetChanged();
                 if (!messagesList.isEmpty()) {
                     recyclerView.scrollToPosition(messagesList.size() - 1);
@@ -123,27 +174,32 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void sendMessage(String text) {
-        String messageId = messagesRef.push().getKey();
         long timestamp = System.currentTimeMillis();
 
+        String messageId = messagesRef.push().getKey();
         if (messageId == null) return;
 
-        Message message = new Message(senderSafeEmail, text, timestamp);
+        Message message = new Message(messageId, senderSafeEmail, text, timestamp);
         messagesRef.child(messageId).setValue(message);
 
+        // Update global last message
         Map<String, Object> lastMsg = new HashMap<>();
         lastMsg.put("text", text);
         lastMsg.put("sender", senderSafeEmail);
         lastMsg.put("timestamp", timestamp);
+        lastMsg.put("uid", messageId);
 
         globalChatRef.child("lastMessage").setValue(lastMsg);
         globalChatRef.child("timestamp").setValue(timestamp);
 
-        String firstEmail = chatId.split("\\|")[0];
-        String secondEmail = chatId.split("\\|")[1];
+        // Update participants
+        String[] participants = chatId.split("\\|");
+        for (String participant : participants) {
+            updateParticipantLastMessage(participant, text);
+        }
 
-        updateParticipantLastMessage(firstEmail, text);
-        updateParticipantLastMessage(secondEmail, text);
+        // Scroll
+        recyclerView.post(() -> recyclerView.scrollToPosition(messagesList.size() - 1));
     }
 
     private void updateParticipantLastMessage(String safeEmail, String text){
@@ -158,5 +214,20 @@ public class ChatActivity extends AppCompatActivity {
         updateMap.put("timestamp", System.currentTimeMillis());
 
         participantChatRef.updateChildren(updateMap);
+    }
+
+    private String formatDateMessage(long timestamp) {
+        Calendar cal = Calendar.getInstance();
+        Calendar msgCal = Calendar.getInstance();
+        msgCal.setTimeInMillis(timestamp);
+
+        int today = cal.get(Calendar.DAY_OF_YEAR);
+        int msgDay = msgCal.get(Calendar.DAY_OF_YEAR);
+        int year = cal.get(Calendar.YEAR);
+        int msgYear = msgCal.get(Calendar.YEAR);
+
+        if (year == msgYear && today == msgDay) return "Today";
+        else if (year == msgYear && today - msgDay == 1) return "Yesterday";
+        else return new SimpleDateFormat("dd/MM/yyyy").format(msgCal.getTime());
     }
 }
